@@ -1,0 +1,20 @@
+fms:
+    url-base: https://prod-fms.kocowa.com
+    path: /api/v01/be/content/list
+    authorization: ${authorization:cm9iaW5kbzpLQ1B0ZWNoMSE=}
+    type: media
+    order-by: start_date
+    order: asc
+    offset: ${offset:0}
+    limit: ${limit:1000}
+http.pool:
+    max.total: 200
+    defaultMaxPerRoute: 100
+    connection.timeout: 5000
+    connection.request.timeout: 5000
+    read.timeout: 10000
+    validate.after.inactivity: 2000
+
+## Logging
+logging.config: classpath:logback-spring.xml
+logging.base.dir: logs
