@@ -6,8 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class FmsparserApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(FmsparserApplication.class, args);
-	}
-
+  public static void main(String[] args) {
+    SpringApplication.run(FmsparserApplication.class, args);
+  }
 }

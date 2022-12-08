@@ -21,4 +21,8 @@ public class FmsProperties {
   private String order;
   private int offset;
   private int limit;
+
+  public String getUrlString() {
+    return "".concat(urlBase).concat("/").concat(path);
+  }
 }

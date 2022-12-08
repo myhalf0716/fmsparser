@@ -16,9 +16,16 @@ public class PropertyTest {
   @Autowired
   FmsProperties fmsProps;
 
+  @Autowired
+  HttpPoolProperty httpPoolProperty;
+
   @Test
   public void propTest() {
     log.debug(fmsProps.toString());
     assertNotNull(fmsProps.getAuthorization());
+
+    log.debug("HTTP POOL [{}]", httpPoolProperty);
+    assertNotNull(httpPoolProperty);
+    assertNotNull(httpPoolProperty.getMaxTotal());
   }
 }
