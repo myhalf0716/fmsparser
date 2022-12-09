@@ -5,12 +5,17 @@ import io.kocowa.fmsparser.vo.FmsContent;
 import io.kocowa.fmsparser.vo.FmsContent.FmsMeta;
 import io.kocowa.fmsparser.vo.FmsQueryVO;
 import io.kocowa.fmsparser.vo.FmsReponseEntity;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.hpsf.Array;
 import org.apache.poi.ss.formula.functions.Column;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
@@ -18,7 +23,9 @@ import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.cache.CacheProperties.Infinispan;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 @Slf4j
 @Component
@@ -35,35 +42,81 @@ public class FmsRunner implements CommandLineRunner {
     System.setProperty("file.encoding", "UTF-8");
     log.debug("ENCODING = [{}]", System.getProperty("file.encoding"));
 
-    String parentId = null;
+    String idFile = null;
     String outFile = null;
 
     for (String arg : args) {
       log.debug("args [{}]", arg);
-      if (arg.startsWith("--parent_id=")) {
-        parentId = arg.substring(arg.indexOf("=") + 1);
+      // if (arg.startsWith("--parent_id=")) {
+      //   parentId = arg.substring(arg.indexOf("=") + 1);
+      // }
+      if (arg.startsWith("--id_file=")) {
+        idFile = arg.substring(arg.indexOf("=") + 1);
       }
-      if (arg.startsWith("--out=")) {
+
+      if (arg.startsWith("--out_file=")) {
         outFile = arg.substring(arg.indexOf("=") + 1);
       }
       // if (arg.startsWith("--id_path")) {
       //   path = arg.substring(arg.indexOf("=") + 1);
       // }
     }
-    if (parentId == null) {
-      log.error("INVALID Arguments : Parent ID required");
-      log.error("USAGE >> java -jar fmsparser.jar --parent_id={parent_id}");
+    if (idFile == null) {
+      log.error("INVALID Arguments : id_file required");
+      log.error("USAGE >> java -jar fmsparser.jar --id_file={id_file}");
 
       return;
     }
 
     if (outFile == null) {
-      outFile = parentId.concat(".xlsx");
+      log.error("INVALID Arguments : out_file required");
+      log.error("USAGE >> java -jar fmsparser.jar --out_file={out_file}");
+
+      return;
     }
 
+    List<String> parentIdList = makeParentIdList(idFile);
+
+    XSSFWorkbook workbook = new XSSFWorkbook();
+    XSSFSheet sheet = workbook.createSheet(SHEET_NAME);
+    // sheet.setColumnWidth(0, 15);
+    // sheet.setColumnWidth(1, 35);
+    // sheet.setColumnWidth(2, 35);
+    // sheet.setColumnWidth(3, 70);
+
+    for (String parentId : parentIdList) {
+      procSeason(parentId, workbook);
+    }
+
+    saveFmsBook(workbook, outFile);
+  }
+
+  private List<String> makeParentIdList(String idFile) {
+    List<String> parentIdList = new ArrayList<>();
+    try (BufferedReader bf = new BufferedReader(new FileReader(idFile))) {
+      String idLine = bf.readLine();
+      while (idLine != null) {
+        String[] ids = idLine.split(",");
+        for (String parentId : ids) {
+          parentId = parentId.trim();
+          if (StringUtils.hasText(parentId)) {
+            parentIdList.add(parentId);
+          }
+        }
+
+        idLine = bf.readLine();
+      }
+    } catch (IOException e) {
+      log.error("fail to read parent id list");
+      log.error(e.getMessage(), e);
+    }
+
+    return parentIdList;
+  }
+
+  private void procSeason(String parentId, XSSFWorkbook workbook) {
     FmsReponseEntity res = callFmsApi(parentId);
     if (res == null) {
-      log.info("FMS API return null");
       return;
     }
 
@@ -73,15 +126,7 @@ public class FmsRunner implements CommandLineRunner {
       return;
     }
 
-    XSSFWorkbook workbook = new XSSFWorkbook();
-    XSSFSheet sheet = workbook.createSheet(SHEET_NAME);
-    sheet.setColumnWidth(0, 15);
-    sheet.setColumnWidth(1, 35);
-    sheet.setColumnWidth(2, 35);
-    sheet.setColumnWidth(3, 70);
-
     writeSeasonData(epiList, workbook);
-    saveFmsBook(workbook, outFile);
   }
 
   private void saveFmsBook(XSSFWorkbook workbook, String outFile) {
@@ -152,15 +197,14 @@ public class FmsRunner implements CommandLineRunner {
     try {
       res = fmsInvoker.invoke(query);
     } catch (Exception e) {
-      log.error("!!!! Fail to invoke FMS - {}\n", e.getMessage(), e);
+      log.error(
+        "!!!! Fail to invoke FMS parentId[{}] - {}\n",
+        parentId,
+        e.getMessage(),
+        e
+      );
     }
 
     return res;
-    // List<FmsContent> fmsList = res.getObjects();
-    // log.debug("FmsReponseEntity content list[{}]", fmsList.size());
-    // for (FmsContent content : fmsList) {
-    //   log.debug("CONTENT [{}]", content);
-    // }
-
   }
 }
