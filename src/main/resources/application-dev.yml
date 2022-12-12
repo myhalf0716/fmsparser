@@ -1,6 +1,8 @@
 fms:
     url-base: https://prod-fms.kocowa.com
-    path: /api/v01/be/content/list
+    path:
+        list: /api/v01/be/content/list
+        season: /api/v01/be/content/get
     authorization: ${authorization:cm9iaW5kbzpLQ1B0ZWNoMSE=}
     type: media
     order-by: start_date

@@ -9,7 +9,7 @@ import lombok.ToString;
 @Getter
 @Setter
 @ToString
-public class FmsReponseEntity {
+public class FmsListReponseEntity {
 
   private String code;
   private String message;

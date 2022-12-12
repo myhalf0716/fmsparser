@@ -1,12 +1,9 @@
 package io.kocowa.fmsparser.service;
 
 import io.kocowa.fmsparser.common.config.FmsProperties;
-import io.kocowa.fmsparser.vo.FmsContent;
+import io.kocowa.fmsparser.common.config.FmsProperties.ApiName;
+import io.kocowa.fmsparser.vo.FmsListReponseEntity;
 import io.kocowa.fmsparser.vo.FmsQueryVO;
-import io.kocowa.fmsparser.vo.FmsReponseEntity;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
@@ -14,24 +11,25 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class FmsInvoker implements HttpInvoker {
+public class FmsEpisodeInvoker implements HttpInvoker {
 
   private final FmsProperties fmsProps;
 
   private final RestTemplate restTemplate;
 
   @Override
-  public FmsReponseEntity invoke(FmsQueryVO query) {
+  public FmsListReponseEntity invoke(FmsQueryVO query) {
     HttpHeaders headers = new HttpHeaders();
     headers.set("Authorization", fmsProps.getAuthorization());
 
-    StringBuilder sb = new StringBuilder(fmsProps.getUrlString())
+    StringBuilder sb = new StringBuilder(
+      fmsProps.getUrlString(ApiName.API_NAME_EPISODE_LIST)
+    )
       .append("?parent_id=")
       .append(query.getParentId())
       .append("&type=")
@@ -49,16 +47,16 @@ public class FmsInvoker implements HttpInvoker {
 
     HttpEntity request = new HttpEntity(headers);
 
-    ResponseEntity<FmsReponseEntity> res = restTemplate.exchange(
+    ResponseEntity<FmsListReponseEntity> res = restTemplate.exchange(
       uri,
       HttpMethod.GET,
       request,
       // (Class<List<FmsContent>>) (Object) List.class
-      FmsReponseEntity.class
+      FmsListReponseEntity.class
     );
 
-    FmsReponseEntity body = res.getBody();
-    log.debug("body [{}]", body);
+    FmsListReponseEntity body = res.getBody();
+    // log.debug("body [{}]", body);
 
     return body;
   }

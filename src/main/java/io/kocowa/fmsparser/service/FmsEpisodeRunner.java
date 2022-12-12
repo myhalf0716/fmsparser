@@ -1,10 +1,11 @@
 package io.kocowa.fmsparser.service;
 
 import io.kocowa.fmsparser.common.config.FmsProperties;
+import io.kocowa.fmsparser.common.config.FmsProperties.ApiName;
 import io.kocowa.fmsparser.vo.FmsContent;
 import io.kocowa.fmsparser.vo.FmsContent.FmsMeta;
+import io.kocowa.fmsparser.vo.FmsListReponseEntity;
 import io.kocowa.fmsparser.vo.FmsQueryVO;
-import io.kocowa.fmsparser.vo.FmsReponseEntity;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -30,9 +31,9 @@ import org.springframework.util.StringUtils;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class FmsRunner implements CommandLineRunner {
+public class FmsEpisodeRunner implements CommandLineRunner {
 
-  private final FmsInvoker fmsInvoker;
+  private final FmsEpisodeInvoker fmsInvoker;
   private final String SHEET_NAME = "FMS";
 
   @Override
@@ -42,14 +43,16 @@ public class FmsRunner implements CommandLineRunner {
     System.setProperty("file.encoding", "UTF-8");
     log.debug("ENCODING = [{}]", System.getProperty("file.encoding"));
 
+    String apiName = null;
     String idFile = null;
     String outFile = null;
 
     for (String arg : args) {
       log.debug("args [{}]", arg);
-      // if (arg.startsWith("--parent_id=")) {
-      //   parentId = arg.substring(arg.indexOf("=") + 1);
-      // }
+      if (arg.startsWith("--api_name=")) {
+        apiName = arg.substring(arg.indexOf("=") + 1);
+      }
+
       if (arg.startsWith("--id_file=")) {
         idFile = arg.substring(arg.indexOf("=") + 1);
       }
@@ -57,32 +60,52 @@ public class FmsRunner implements CommandLineRunner {
       if (arg.startsWith("--out_file=")) {
         outFile = arg.substring(arg.indexOf("=") + 1);
       }
-      // if (arg.startsWith("--id_path")) {
-      //   path = arg.substring(arg.indexOf("=") + 1);
-      // }
     }
+
+    if (!ApiName.API_NAME_EPISODE_LIST.apiName().equals(apiName)) {
+      log.info(
+        "=========================== STOP FmsEpisodeRunner!!! =========================="
+      );
+      return;
+    }
+
     if (idFile == null) {
       log.error("INVALID Arguments : id_file required");
-      log.error("USAGE >> java -jar fmsparser.jar --id_file={id_file}");
+      log.error(
+        "USAGE >> java -jar fmsparser.jar --apiName={season|list} --id_file={id_file} --out_file={out_file}"
+      );
 
       return;
     }
 
     if (outFile == null) {
       log.error("INVALID Arguments : out_file required");
-      log.error("USAGE >> java -jar fmsparser.jar --out_file={out_file}");
+      log.error(
+        "USAGE >> java -jar fmsparser.jar --apiName={season|list} --id_file={id_file} --out_file={out_file}"
+      );
 
       return;
     }
 
     List<String> parentIdList = makeParentIdList(idFile);
+    log.debug("parentIdList size[{}]", parentIdList.size());
 
     XSSFWorkbook workbook = new XSSFWorkbook();
     XSSFSheet sheet = workbook.createSheet(SHEET_NAME);
-    // sheet.setColumnWidth(0, 15);
-    // sheet.setColumnWidth(1, 35);
-    // sheet.setColumnWidth(2, 35);
-    // sheet.setColumnWidth(3, 70);
+    XSSFCellStyle cs = workbook.createCellStyle();
+    Row row = sheet.createRow(0);
+    int columnIndex = 0;
+    Cell cell = row.createCell(columnIndex++);
+    cell.setCellValue("parent_id");
+
+    cell = row.createCell(columnIndex++);
+    cell.setCellValue("title_en");
+    cell = row.createCell(columnIndex++);
+    cell.setCellValue("summary_en");
+    cell = row.createCell(columnIndex++);
+    cell.setCellValue("description_en");
+    cs.setWrapText(true);
+    cell.setCellStyle(cs);
 
     for (String parentId : parentIdList) {
       procSeason(parentId, workbook);
@@ -115,18 +138,28 @@ public class FmsRunner implements CommandLineRunner {
   }
 
   private void procSeason(String parentId, XSSFWorkbook workbook) {
-    FmsReponseEntity res = callFmsApi(parentId);
-    if (res == null) {
-      return;
-    }
+    try {
+      FmsListReponseEntity res = callFmsApi(parentId);
+      if (res == null) {
+        return;
+      }
+      log.debug(
+        "parent_id [{}] episodes [{}|{}]",
+        parentId,
+        res.getTotalCount(),
+        res.getObjects().size()
+      );
 
-    List<FmsContent> epiList = res.getObjects();
-    if (epiList == null || epiList.isEmpty()) {
-      log.info("SEASON has no episode");
-      return;
-    }
+      List<FmsContent> epiList = res.getObjects();
+      if (epiList == null || epiList.isEmpty()) {
+        log.info("SEASON has no episode");
+        return;
+      }
 
-    writeSeasonData(epiList, workbook);
+      writeSeasonData(epiList, workbook);
+    } catch (Exception e) {
+      log.error("fail to procSeason [{}] - {}", parentId, e.getMessage(), e);
+    }
   }
 
   private void saveFmsBook(XSSFWorkbook workbook, String outFile) {
@@ -142,20 +175,7 @@ public class FmsRunner implements CommandLineRunner {
     XSSFWorkbook workbook
   ) {
     XSSFSheet sheet = workbook.getSheet(SHEET_NAME);
-    XSSFCellStyle cs = workbook.createCellStyle();
-    Row row = sheet.createRow(0);
-    int columnIndex = 0;
-    Cell cell = row.createCell(columnIndex++);
-    cell.setCellValue("parent_id");
-
-    cell = row.createCell(columnIndex++);
-    cell.setCellValue("title_en");
-    cell = row.createCell(columnIndex++);
-    cell.setCellValue("summary_en");
-    cell = row.createCell(columnIndex++);
-    cell.setCellValue("description_en");
-    cs.setWrapText(true);
-    cell.setCellStyle(cs);
+    int startRowNo = sheet.getLastRowNum() + 1;
 
     for (int rowNo = 0; rowNo < epiList.size(); rowNo++) {
       FmsContent episode = epiList.get(rowNo);
@@ -164,11 +184,11 @@ public class FmsRunner implements CommandLineRunner {
       }
 
       try {
-        row = sheet.createRow(rowNo + 1);
-        columnIndex = 0;
+        Row row = sheet.createRow(rowNo + startRowNo);
+        int columnIndex = 0;
         FmsMeta meta = episode.getMeta();
 
-        cell = row.createCell(columnIndex++);
+        Cell cell = row.createCell(columnIndex++);
         cell.setCellValue(episode.getPreantId());
         cell = row.createCell(columnIndex++);
         cell.setCellValue(meta.getTitle().getEn());
@@ -190,10 +210,10 @@ public class FmsRunner implements CommandLineRunner {
     }
   }
 
-  private FmsReponseEntity callFmsApi(String parentId) {
+  private FmsListReponseEntity callFmsApi(String parentId) {
     FmsQueryVO query = new FmsQueryVO();
     query.setParentId(parentId);
-    FmsReponseEntity res = null;
+    FmsListReponseEntity res = null;
     try {
       res = fmsInvoker.invoke(query);
     } catch (Exception e) {
