@@ -1,5 +1,6 @@
 package io.kocowa.fmsparser.vo;
 
+import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -9,7 +10,11 @@ import lombok.ToString;
 @Setter
 @ToString
 public class FmsSeasonMeta {
-
+  
+  public FmsSeasonMeta() {
+    this.tags = new ArrayList<>();
+  }
+  
   @Getter
   @Setter
   @ToString
